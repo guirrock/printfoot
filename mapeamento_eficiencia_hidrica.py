@@ -390,300 +390,784 @@ df_final = df[colunas_finais].sort_values(by='Eficiencia_Real_g_m3', ascending=F
 df_final.to_excel('2_eficiencia_proteica_real_hibrida.xlsx', index=False)
 print(f"\nSucesso! Arquivo final gerado: '2_eficiencia_proteica_real_hibrida.xlsx'")
 
-import pandas as pd
-from rapidfuzz import process, fuzz
+!pip install adjustText
+
+# ============================================================
+# DPWEI - Figure Generation
+# Google Colab
+# ============================================================
+
+# Uncomment if running for the first time
+# !pip install adjustText openpyxl
 
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import matplotlib.pyplot as plt
+from adjustText import adjust_text
 
-# ==========================================
-# 1. CONFIGURAÇÕES INICIAIS DE ESTILO
-# ==========================================
-# Estilo limpo e acadêmico para os gráficos
-sns.set_theme(style="whitegrid")
-plt.rcParams.update({'figure.autolayout': True}) # Evita que textos sejam cortados
+from google.colab import files
 
-print("Carregando os dados para os gráficos...")
-# Lê o arquivo gerado no script anterior
-df = pd.read_excel('2_eficiencia_proteica_real_hibrida.xlsx')
+# ------------------------------------------------------------
+# Matplotlib configuration
+# ------------------------------------------------------------
 
-# Para gráficos de barras, vamos pegar os Top 20 alimentos mais eficientes
-# Se tentar plotar os 250 de uma vez, os nomes ficam ilegíveis
-df_top20 = df.head(20).copy()
+plt.rcParams["figure.dpi"] = 300
+plt.rcParams["savefig.dpi"] = 300
 
-# Encurtar nomes muito grandes para não poluir o eixo Y
-df_top20['Produto_Curto'] = df_top20['Produto_PT'].apply(lambda x: str(x)[:30] + '...' if len(str(x)) > 30 else str(x))
+plt.rcParams["font.family"] = "DejaVu Sans"
 
-# ==========================================
-# GRÁFICO 1: PEGADA HÍDRICA EMPILHADA (Verde, Azul e Cinza)
-# ==========================================
-print("Gerando Gráfico 1: Pegada Hídrica Empilhada...")
-fig1, ax1 = plt.subplots(figsize=(10, 8))
+plt.rcParams["font.size"] = 11
+plt.rcParams["axes.titlesize"] = 14
+plt.rcParams["axes.labelsize"] = 12
+plt.rcParams["xtick.labelsize"] = 10
+plt.rcParams["ytick.labelsize"] = 10
+plt.rcParams["legend.fontsize"] = 10
 
-# Preparando os dados para o empilhamento
-barras_dados = df_top20.set_index('Produto_Curto')[['Agua_Verde', 'Agua_Azul', 'Agua_Cinza']]
+plt.rcParams["axes.spines.top"] = False
+plt.rcParams["axes.spines.right"] = False
 
-# Cores intuitivas: Verde para chuva, Azul para irrigação, Cinza escuro para poluição
-cores = ['#2ca02c', '#1f77b4', '#7f7f7f']
+# ------------------------------------------------------------
+# Color palette
+# ------------------------------------------------------------
 
-barras_dados.plot(kind='barh', stacked=True, color=cores, ax=ax1, width=0.75)
+COLOR_DPWEI = "#1f4e79"
 
-ax1.set_title('Composição da Pegada Hídrica - Top 20 Alimentos Mais Eficientes', fontsize=14, pad=15)
-ax1.set_xlabel('Pegada Hídrica Total (m³/tonelada)', fontsize=12)
-ax1.set_ylabel('Matriz Alimentar', fontsize=12)
-ax1.legend(['Água Verde (Chuva)', 'Água Azul (Irrigação/Rios)', 'Água Cinza (Poluição)'], title="Tipo de Água")
-ax1.invert_yaxis() # Inverte para o #1 ficar no topo
+COLOR_GREEN = "#4CAF50"
+COLOR_BLUE  = "#2196F3"
+COLOR_GRAY  = "#9E9E9E"
 
-plt.savefig('grafico1_pegada_empilhada.png', dpi=300, bbox_inches='tight')
-plt.close()
+COLOR_WATER = "#4F81BD"
+COLOR_PROTEIN = "#C0504D"
 
-# ==========================================
-# GRÁFICO 2: DISPERSÃO (Scatter Plot) - O Quadrante da Sustentabilidade
-# ==========================================
-print("Gerando Gráfico 2: Dispersão (Água x Proteína)...")
-fig2, ax2 = plt.subplots(figsize=(10, 8))
+print("Configuration loaded.")
 
-# Vamos plotar a base inteira aqui para mostrar a nuvem de dados
-sns.scatterplot(
-    data=df,
-    x='Agua_Total_m3_t',
-    y='Proteina_Digestivel_g',
-    hue='Categoria_Alimento', # Pinta cada ponto com a cor da sua categoria
-    palette='tab20',
-    s=80, # Tamanho dos pontos
-    alpha=0.8,
-    ax=ax2
+# ============================================================
+# Upload Excel file
+# ============================================================
+
+uploaded = files.upload()
+
+filename = next(iter(uploaded))
+
+df = pd.read_excel(filename)
+
+# ============================================================
+# Convert numeric columns
+# ============================================================
+
+numeric_columns = [
+    "Proteina_Digestivel_g",
+    "Agua_Total_m3_t",
+    "Agua_Verde",
+    "Agua_Azul",
+    "Agua_Cinza",
+    "%_Agua_Verde",
+    "%_Agua_Azul",
+    "%_Agua_Cinza"
+]
+
+for col in numeric_columns:
+    df[col] = (
+        df[col]
+        .astype(str)
+        .str.replace(",", ".", regex=False)
+        .astype(float)
+    )
+
+# ============================================================
+# Rename columns
+# ============================================================
+
+df = df.rename(columns={"Inglês": "Product"})
+
+# ============================================================
+# Calculate DPWEI
+# ============================================================
+
+df["DPWEI"] = (
+    df["Proteina_Digestivel_g"] /
+    df["Agua_Total_m3_t"]
+) * 1000
+
+# ============================================================
+# Sort by DPWEI
+# ============================================================
+
+df = (
+    df
+    .sort_values("DPWEI", ascending=False)
+    .reset_index(drop=True)
 )
 
-ax2.set_title('Relação entre Impacto Hídrico e Entrega de Proteína Digestível', fontsize=14, pad=15)
-ax2.set_xlabel('Pegada Hídrica Total (m³/ton)', fontsize=12)
-ax2.set_ylabel('Proteína Digestível (g/100g) - Ajustada pelo DIAAS', fontsize=12)
+top10 = df.head(10).copy()
 
-# Adiciona um texto explicativo no gráfico indicando onde está o "cenário ideal"
-ax2.text(
-    0.05, 0.95,
-    'Cenário Ideal:\nAlta Proteína, Baixa Água',
-    transform=ax2.transAxes,
+print(f"Number of foods: {len(df)}")
+display(df[["Product", "DPWEI"]].head(10))
+
+# ============================================================
+# Figure 1 - Top 10 Foods Ranked by DPWEI
+# ============================================================
+
+ranking = (
+    top10
+    .sort_values("DPWEI", ascending=True)
+    .reset_index(drop=True)
+)
+
+# Create labels with ranking
+labels = [
+    f"{10-i}. {product}"
+    for i, product in enumerate(ranking["Product"])
+]
+
+# ============================================================
+# Figure 1 - Top 10 Foods Ranked by DPWEI Score
+# ============================================================
+
+from matplotlib.ticker import MaxNLocator
+
+# ------------------------------------------------------------
+# Prepare data
+# ------------------------------------------------------------
+
+ranking = (
+    df.sort_values("DPWEI", ascending=False)
+      .head(10)
+      .reset_index(drop=True)
+)
+
+labels = ranking["Product"].tolist()
+
+# ------------------------------------------------------------
+# Color palette (ColorBrewer Blues)
+# ------------------------------------------------------------
+
+colors = [
+    "#08306B",  # 1st
+    "#2171B5",  # 2nd
+    "#6BAED6",  # 3rd
+]
+
+colors.extend(["#C6DBEF"] * (len(ranking) - 3))
+
+# ------------------------------------------------------------
+# Create figure
+# ------------------------------------------------------------
+
+fig, ax = plt.subplots(figsize=(11, 6.2))
+
+bars = ax.barh(
+    y=labels,
+    width=ranking["DPWEI"],
+    color=colors,
+    height=0.70,
+    linewidth=0
+)
+
+# Highest score at the top
+ax.invert_yaxis()
+
+# ------------------------------------------------------------
+# Add score labels
+# ------------------------------------------------------------
+
+offset = ranking["DPWEI"].max() * 0.02
+
+for bar, score in zip(bars, ranking["DPWEI"]):
+
+    ax.text(
+        score + offset,
+        bar.get_y() + bar.get_height() / 2,
+        f"{score:.2f}",
+        va="center",
+        ha="left",
+        fontsize=10,
+        fontweight="bold",
+        color="#333333"
+    )
+
+# ------------------------------------------------------------
+# Axis formatting
+# ------------------------------------------------------------
+
+ax.set_xlabel(
+    "DPWEI Score",
+    fontsize=12,
+    fontweight="bold"
+)
+
+ax.set_ylabel("")
+
+ax.set_xlim(
+    0,
+    ranking["DPWEI"].max() * 1.22
+)
+
+ax.xaxis.set_major_locator(MaxNLocator(7))
+
+# ------------------------------------------------------------
+# Grid
+# ------------------------------------------------------------
+
+ax.grid(
+    axis="x",
+    linestyle="--",
+    linewidth=0.6,
+    alpha=0.30
+)
+
+ax.set_axisbelow(True)
+
+# ------------------------------------------------------------
+# Tick formatting
+# ------------------------------------------------------------
+
+ax.tick_params(
+    axis="x",
+    labelsize=10
+)
+
+ax.tick_params(
+    axis="y",
+    labelsize=10.5,
+    length=0
+)
+
+# ------------------------------------------------------------
+# Remove unnecessary spines
+# ------------------------------------------------------------
+
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.spines["left"].set_visible(False)
+ax.spines["bottom"].set_linewidth(0.8)
+
+# ------------------------------------------------------------
+# Layout
+# ------------------------------------------------------------
+
+plt.tight_layout()
+
+# ------------------------------------------------------------
+# Export
+# ------------------------------------------------------------
+
+plt.savefig(
+    "Figure1_DPWEI_Ranking.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure1_DPWEI_Ranking.pdf",
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure1_DPWEI_Ranking.svg",
+    bbox_inches="tight"
+)
+
+plt.show()
+
+# ============================================================
+# Figure 2 - Relationship between Digestible Protein,
+# Total Water Footprint and DPWEI Score
+# ============================================================
+
+from adjustText import adjust_text
+
+# ------------------------------------------------------------
+# Prepare data
+# ------------------------------------------------------------
+
+ranking = (
+    df.sort_values("DPWEI", ascending=False)
+      .head(10)
+      .reset_index(drop=True)
+)
+
+# ------------------------------------------------------------
+# Create figure
+# ------------------------------------------------------------
+
+fig, ax = plt.subplots(figsize=(10.5, 7.5))
+
+scatter = ax.scatter(
+    ranking["Agua_Total_m3_t"],
+    ranking["Proteina_Digestivel_g"],
+    c=ranking["DPWEI"],
+    cmap="viridis",
+    s=130,
+    edgecolors="white",
+    linewidths=0.8,
+    alpha=0.95,
+    zorder=3
+)
+
+# ------------------------------------------------------------
+# Add labels
+# ------------------------------------------------------------
+
+texts = []
+
+for _, row in ranking.iterrows():
+
+    texts.append(
+        ax.text(
+            row["Agua_Total_m3_t"],
+            row["Proteina_Digestivel_g"],
+            row["Product"],
+            fontsize=9,
+            ha="center",
+            va="center",
+            bbox=dict(
+                facecolor="white",
+                edgecolor="none",
+                alpha=0.85,
+                pad=0.30
+            ),
+            zorder=5
+        )
+    )
+
+adjust_text(
+    texts,
+    x=ranking["Agua_Total_m3_t"],
+    y=ranking["Proteina_Digestivel_g"],
+    ax=ax,
+
+    expand=(2.5, 2.5),
+    force_text=(2.5, 2.5),
+    force_static=(2.0, 2.0),
+    force_pull=(0.15, 0.15),
+
+    avoid_self=True,
+    prevent_crossings=True,
+    ensure_inside_axes=True,
+
+    only_move={
+        "text": "xy",
+        "static": "xy",
+        "explode": "xy",
+        "pull": "xy",
+    },
+
+    arrowprops=dict(
+        arrowstyle="-",
+        color="gray",
+        lw=0.6,
+        alpha=0.7,
+        shrinkA=3,
+        shrinkB=3,
+    )
+)
+
+# ------------------------------------------------------------
+# Colorbar
+# ------------------------------------------------------------
+
+cbar = plt.colorbar(
+    scatter,
+    ax=ax,
+    pad=0.02
+)
+
+cbar.set_label(
+    "DPWEI Score",
     fontsize=11,
-    verticalalignment='top',
-    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    fontweight="bold"
 )
 
-# Coloca a legenda fora do gráfico para não tampar os pontos
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title="Categoria do Alimento")
+cbar.ax.tick_params(labelsize=10)
 
-plt.savefig('grafico2_dispersao.png', dpi=300, bbox_inches='tight')
-plt.close()
+# ------------------------------------------------------------
+# Axis labels
+# ------------------------------------------------------------
 
-# ==========================================
-# GRÁFICO 3: CHOQUE DE REALIDADE (Eficiência Bruta vs Eficiência Real)
-# ==========================================
-print("Gerando Gráfico 3: Comparação de Eficiências (Bruta x Real)...")
-fig3, ax3 = plt.subplots(figsize=(10, 8))
-
-# Pegamos os 15 melhores para ficar com um visual de barras agrupadas perfeito
-df_top15 = df.head(15).copy()
-df_top15['Produto_Curto'] = df_top15['Produto_PT'].apply(lambda x: str(x)[:25] + '...' if len(str(x)) > 25 else str(x))
-
-dados_comp = df_top15.set_index('Produto_Curto')[['Eficiencia_Bruta_g_m3', 'Eficiencia_Real_g_m3']]
-
-# Plota barras lado a lado
-dados_comp.plot(kind='barh', ax=ax3, color=['#ff7f0e', '#1f77b4'], width=0.8)
-
-ax3.set_title('Impacto do Ajuste de Digestibilidade (DIAAS) na Eficiência', fontsize=14, pad=15)
-ax3.set_xlabel('Eficiência Hídrica (g de proteína por m³ de água)', fontsize=12)
-ax3.set_ylabel('Matriz Alimentar', fontsize=12)
-ax3.legend(['Eficiência Bruta (Sem Ajuste)', 'Eficiência Real (Ajustada pelo DIAAS)'])
-ax3.invert_yaxis()
-
-plt.savefig('grafico3_eficiencia_comparada.png', dpi=300, bbox_inches='tight')
-plt.close()
-
-print("\nSucesso! 3 gráficos em alta resolução (300 DPI) foram salvos na sua pasta.")
-
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
-
-# ==========================================
-# 1. CONFIGURAÇÕES INICIAIS DE ESTILO
-# ==========================================
-sns.set_theme(style="whitegrid")
-plt.rcParams.update({'figure.autolayout': True})
-
-print("Carregando os dados para os novos gráficos...")
-df = pd.read_excel('2_eficiencia_proteica_real_hibrida.xlsx')
-
-# ==========================================
-# GRÁFICO 4: OS MAIORES TEORES PROTEICOS (A Volta da Carne)
-# ==========================================
-print("Gerando Gráfico 4: Top 20 Alimentos com Mais Proteína Bruta...")
-fig4, ax4 = plt.subplots(figsize=(10, 8))
-
-# Ordena os alimentos estritamente pela quantidade de proteína (independente da água)
-df_top_prot = df.sort_values(by='Proteina_g', ascending=False).head(20).copy()
-df_top_prot['Produto_Curto'] = df_top_prot['Produto_PT'].apply(lambda x: str(x)[:25] + '...' if len(str(x)) > 25 else str(x))
-
-dados_prot = df_top_prot.set_index('Produto_Curto')[['Proteina_g', 'Proteina_Digestivel_g']]
-
-# Gráfico de barras lado a lado mostrando o que é bruto e o que é realmente absorvido
-dados_prot.plot(kind='barh', ax=ax4, color=['#d62728', '#2ca02c'], width=0.8)
-
-ax4.set_title('Top 20 Fontes de Proteína e a Retenção pelo DIAAS', fontsize=14, pad=15)
-ax4.set_xlabel('Quantidade de Proteína (g/100g)', fontsize=12)
-ax4.set_ylabel('Matriz Alimentar', fontsize=12)
-ax4.legend(['Proteína Bruta', 'Proteína Digestível (Ajustada)'])
-ax4.invert_yaxis()
-
-plt.savefig('grafico4_top_proteinas.png', dpi=300, bbox_inches='tight')
-plt.close()
-
-# ==========================================
-# GRÁFICO 5: ANÁLISE MACRO POR CATEGORIA (Eixos Duplos)
-# ==========================================
-print("Gerando Gráfico 5: Médias por Categoria (Eixos Combinados)...")
-fig5, ax5a = plt.subplots(figsize=(12, 7))
-
-# Calcula a média de água e proteína por categoria
-df_cat = df.groupby('Categoria_Alimento').agg({
-    'Agua_Total_m3_t': 'mean',
-    'Proteina_Digestivel_g': 'mean'
-}).reset_index().sort_values(by='Agua_Total_m3_t', ascending=True)
-
-# Eixo esquerdo: Gráfico de Barras para a Pegada Hídrica Média
-sns.barplot(data=df_cat, x='Categoria_Alimento', y='Agua_Total_m3_t', ax=ax5a, color='#1f77b4', alpha=0.7)
-ax5a.set_ylabel('Pegada Hídrica Total Média (m³/ton)', color='#1f77b4', fontsize=12)
-ax5a.tick_params(axis='y', labelcolor='#1f77b4')
-ax5a.set_xlabel('Categoria do Alimento', fontsize=12)
-ax5a.set_xticklabels(ax5a.get_xticklabels(), rotation=45, ha='right')
-
-# Eixo direito: Gráfico de Linha para a Proteína Digestível Média
-ax5b = ax5a.twinx()
-sns.lineplot(data=df_cat, x='Categoria_Alimento', y='Proteina_Digestivel_g', ax=ax5b, color='#d62728', marker='o', linewidth=2.5, markersize=8)
-ax5b.set_ylabel('Proteína Digestível Média (g/100g)', color='#d62728', fontsize=12)
-ax5b.tick_params(axis='y', labelcolor='#d62728')
-
-plt.title('Trade-off por Categoria: Custo Hídrico (Barras) vs. Entrega Nutricional (Linha)', fontsize=14, pad=15)
-
-plt.savefig('grafico5_categorias_eixos_duplos.png', dpi=300, bbox_inches='tight')
-plt.close()
-
-# ==========================================
-# GRÁFICO 6: BOLHAS MULTIDIMENSIONAIS (O Panorama Completo)
-# ==========================================
-print("Gerando Gráfico 6: Gráfico de Bolhas (4 Dimensões)...")
-fig6, ax6 = plt.subplots(figsize=(12, 9))
-
-# X = Água, Y = Proteína, Tamanho da Bolha = Eficiência Real, Cor = Categoria
-# Filtramos outliers extremos de água (como especiarias) se houver, para não amassar o gráfico
-df_bubble = df[df['Agua_Total_m3_t'] < df['Agua_Total_m3_t'].quantile(0.95)]
-
-scatter = sns.scatterplot(
-    data=df_bubble,
-    x='Agua_Total_m3_t',
-    y='Proteina_Digestivel_g',
-    size='Eficiencia_Real_g_m3',
-    sizes=(50, 800), # Ajusta o tamanho mínimo e máximo das bolhas
-    hue='Categoria_Alimento',
-    palette='Set2',
-    alpha=0.7,
-    edgecolor='black',
-    ax=ax6
+ax.set_xlabel(
+    "Total Water Footprint (m³/t)",
+    fontsize=12,
+    fontweight="bold"
 )
 
-ax6.set_title('Panorama de Sustentabilidade: Água x Proteína x Eficiência Real', fontsize=14, pad=15)
-ax6.set_xlabel('Custo Ambiental: Pegada Hídrica Total (m³/ton)', fontsize=12)
-ax6.set_ylabel('Entrega Nutricional: Proteína Digestível (g/100g)', fontsize=12)
-
-# Organiza as legendas fora do gráfico
-h, l = scatter.get_legend_handles_labels()
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
-
-plt.savefig('grafico6_bolhas_multidimensionais.png', dpi=300, bbox_inches='tight')
-plt.close()
-
-print("\nSucesso! Os 3 novos gráficos exploratórios foram gerados.")
-
-# ================================
-# 1. Carregar arquivos Excel
-# ================================
-taco = pd.read_excel('taco.xlsx')
-pegada = pd.read_excel('pegada.xlsx')
-
-# ================================
-# 2. Renomear colunas para consistência
-# ================================
-taco = taco[['alimento', 'Proteína']].rename(columns={'alimento': 'Produto', 'Proteína': 'Proteina_g'})
-pegada = pegada[['Produto', 'Total']].rename(columns={'Total': 'Agua_m3_t'})
-
-# ================================
-# 3. Função de correspondência aproximada
-# ================================
-def match_product(product, choices, threshold=80):
-    """
-    Encontra a melhor correspondência aproximada para 'product' dentro de 'choices'.
-    Retorna None se nenhuma correspondência passar o threshold.
-    """
-    result = process.extractOne(product, choices, scorer=fuzz.token_sort_ratio)
-    if result is not None:
-        match, score, _ = result
-        if score >= threshold:
-            return match
-    return None
-
-# ================================
-# 4. Criar lista de correspondências
-# ================================
-taco_choices = taco['Produto'].tolist()
-pegada['Produto_correspondente'] = pegada['Produto'].apply(lambda x: match_product(x, taco_choices, threshold=60))
-
-# ================================
-# 5. Criar tabela de correspondência sugerida para revisão
-# ================================
-correspondencias = pegada[['Produto', 'Produto_correspondente']]
-correspondencias.to_excel('correspondencias_sugeridas.xlsx', index=False)
-print("Tabela de correspondência sugerida criada: 'correspondencias_sugeridas.xlsx'")
-
-# ================================
-# 6. Merge com tabela de pegada hídrica
-# ================================
-df = pd.merge(
-    pegada,
-    taco,
-    left_on='Produto_correspondente',
-    right_on='Produto',
-    how='inner'
+ax.set_ylabel(
+    "Digestible Protein (g/100 g)",
+    fontsize=12,
+    fontweight="bold"
 )
 
+# ------------------------------------------------------------
+# Improve limits
+# ------------------------------------------------------------
 
-# ================================
-# 7. Converter colunas para numérico e remover linhas inválidas
-# ================================
-df['Proteina_g'] = pd.to_numeric(df['Proteina_g'], errors='coerce')
-df['Agua_m3_t'] = pd.to_numeric(df['Agua_m3_t'], errors='coerce')
-df = df.dropna(subset=['Proteina_g', 'Agua_m3_t'])
+x_min = ranking["Agua_Total_m3_t"].min()
+x_max = ranking["Agua_Total_m3_t"].max()
 
-# ================================
-# 8. Calcular eficiência hídrica da proteína
-# ================================
-df['Proteina_por_m3'] = df['Proteina_g'] / df['Agua_m3_t']
+y_min = ranking["Proteina_Digestivel_g"].min()
+y_max = ranking["Proteina_Digestivel_g"].max()
 
-# ================================
-# 9. Ordenar por eficiência
-# ================================
-df_sorted = df.sort_values(by='Proteina_por_m3', ascending=False)
+x_margin = (x_max - x_min) * 0.08
+y_margin = (y_max - y_min) * 0.08
 
-# ================================
-# 10. Salvar resultado final
-# ================================
-df_sorted.to_excel('eficiencia_proteica_final_60.xlsx', index=False)
-print("Arquivo final de eficiência hídrica criado: 'eficiencia_proteica_final_60.xlsx'")
+ax.set_xlim(
+    x_min - x_margin,
+    x_max + x_margin
+)
 
-# ================================
-# 11. Mostrar top 10 alimentos mais eficientes
-# ================================
-print(df_sorted.head(10))
+ax.set_ylim(
+    y_min - y_margin,
+    y_max + y_margin
+)
+
+# ------------------------------------------------------------
+# Grid
+# ------------------------------------------------------------
+
+ax.grid(
+    linestyle="--",
+    linewidth=0.6,
+    alpha=0.30
+)
+
+ax.set_axisbelow(True)
+
+# ------------------------------------------------------------
+# Tick formatting
+# ------------------------------------------------------------
+
+ax.tick_params(
+    axis="both",
+    labelsize=10
+)
+
+# ------------------------------------------------------------
+# Remove unnecessary spines
+# ------------------------------------------------------------
+
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+
+# ------------------------------------------------------------
+# Layout
+# ------------------------------------------------------------
+
+plt.tight_layout()
+
+# ------------------------------------------------------------
+# Export
+# ------------------------------------------------------------
+
+plt.savefig(
+    "Figure2_DigestibleProtein_vs_TotalWaterFootprint.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure2_DigestibleProtein_vs_TotalWaterFootprint.pdf",
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure2_DigestibleProtein_vs_TotalWaterFootprint.svg",
+    bbox_inches="tight"
+)
+
+plt.show()
+
+# ============================================================
+# Figure 3 - Composition of the Total Water Footprint
+# (Top 10 Foods by DPWEI Score)
+# ============================================================
+
+# ------------------------------------------------------------
+# Prepare data
+# ------------------------------------------------------------
+
+ranking = (
+    df.sort_values("DPWEI", ascending=False)
+      .head(10)
+      .copy()
+)
+
+# Reverse order so the highest DPWEI appears at the top
+ranking = ranking.iloc[::-1]
+
+# ------------------------------------------------------------
+# Create figure
+# ------------------------------------------------------------
+
+fig, ax = plt.subplots(figsize=(10.5, 7.5))
+
+# ------------------------------------------------------------
+# Colors
+# ------------------------------------------------------------
+
+green_color = "#4CAF50"
+blue_color = "#4F81BD"
+gray_color = "#9E9E9E"
+
+# ------------------------------------------------------------
+# Horizontal stacked bars
+# ------------------------------------------------------------
+
+ax.barh(
+    ranking["Product"],
+    ranking["Agua_Verde"],
+    color=green_color,
+    edgecolor="white",
+    linewidth=0.6,
+    label="Green Water"
+)
+
+ax.barh(
+    ranking["Product"],
+    ranking["Agua_Azul"],
+    left=ranking["Agua_Verde"],
+    color=blue_color,
+    edgecolor="white",
+    linewidth=0.6,
+    label="Blue Water"
+)
+
+ax.barh(
+    ranking["Product"],
+    ranking["Agua_Cinza"],
+    left=ranking["Agua_Verde"] + ranking["Agua_Azul"],
+    color=gray_color,
+    edgecolor="white",
+    linewidth=0.6,
+    label="Gray Water"
+)
+
+# ------------------------------------------------------------
+# Axis labels
+# ------------------------------------------------------------
+
+ax.set_xlabel(
+    "Total Water Footprint (m³/t)",
+    fontsize=12,
+    fontweight="bold"
+)
+
+ax.set_ylabel("")
+
+# ------------------------------------------------------------
+# Legend
+# ------------------------------------------------------------
+
+ax.legend(
+    loc="upper center",
+    bbox_to_anchor=(0.5, 1.08),
+    ncol=3,
+    frameon=False,
+    fontsize=10
+)
+
+# ------------------------------------------------------------
+# Grid
+# ------------------------------------------------------------
+
+ax.grid(
+    axis="x",
+    linestyle="--",
+    linewidth=0.6,
+    alpha=0.30
+)
+
+ax.set_axisbelow(True)
+
+# ------------------------------------------------------------
+# Tick formatting
+# ------------------------------------------------------------
+
+ax.tick_params(
+    axis="x",
+    labelsize=10
+)
+
+ax.tick_params(
+    axis="y",
+    labelsize=10
+)
+
+# ------------------------------------------------------------
+# Remove unnecessary spines
+# ------------------------------------------------------------
+
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+
+# ------------------------------------------------------------
+# Layout
+# ------------------------------------------------------------
+
+plt.tight_layout()
+
+# ------------------------------------------------------------
+# Export
+# ------------------------------------------------------------
+
+plt.savefig(
+    "Figure3_WaterFootprintComposition.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure3_WaterFootprintComposition.pdf",
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure3_WaterFootprintComposition.svg",
+    bbox_inches="tight"
+)
+
+plt.show()
+
+# ============================================================
+# Figure 4 - Gray Water Footprint of Food Products
+# ============================================================
+
+# ------------------------------------------------------------
+# Prepare data
+# ------------------------------------------------------------
+
+ranking = (
+    df.sort_values("Agua_Cinza", ascending=False)
+      .copy()
+)
+
+# Reverse order so the largest value appears at the top
+ranking = ranking.iloc[::-1]
+
+# ------------------------------------------------------------
+# Create figure
+# ------------------------------------------------------------
+
+fig, ax = plt.subplots(figsize=(10.5, 8))
+
+# ------------------------------------------------------------
+# Color
+# ------------------------------------------------------------
+
+gray_color = "#7F7F7F"
+
+# ------------------------------------------------------------
+# Horizontal bars
+# ------------------------------------------------------------
+
+bars = ax.barh(
+    ranking["Product"],
+    ranking["Agua_Cinza"],
+    color=gray_color,
+    edgecolor="white",
+    linewidth=0.6
+)
+
+# ------------------------------------------------------------
+# Add values
+# ------------------------------------------------------------
+
+max_value = ranking["Agua_Cinza"].max()
+
+offset = max_value * 0.01
+
+for bar in bars:
+
+    width = bar.get_width()
+
+    ax.text(
+        width + offset,
+        bar.get_y() + bar.get_height()/2,
+        f"{width:,.0f}",
+        va="center",
+        ha="left",
+        fontsize=9
+    )
+
+# ------------------------------------------------------------
+# Axis labels
+# ------------------------------------------------------------
+
+ax.set_xlabel(
+    "Gray Water Footprint (m³/t)",
+    fontsize=12,
+    fontweight="bold"
+)
+
+ax.set_ylabel("")
+
+# ------------------------------------------------------------
+# Grid
+# ------------------------------------------------------------
+
+ax.grid(
+    axis="x",
+    linestyle="--",
+    linewidth=0.6,
+    alpha=0.30
+)
+
+ax.set_axisbelow(True)
+
+# ------------------------------------------------------------
+# Tick formatting
+# ------------------------------------------------------------
+
+ax.tick_params(
+    axis="x",
+    labelsize=10
+)
+
+ax.tick_params(
+    axis="y",
+    labelsize=10
+)
+
+# ------------------------------------------------------------
+# Remove unnecessary spines
+# ------------------------------------------------------------
+
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+
+# ------------------------------------------------------------
+# Improve limits
+# ------------------------------------------------------------
+
+ax.set_xlim(
+    0,
+    max_value * 1.10
+)
+
+# ------------------------------------------------------------
+# Layout
+# ------------------------------------------------------------
+
+plt.tight_layout()
+
+# ------------------------------------------------------------
+# Export
+# ------------------------------------------------------------
+
+plt.savefig(
+    "Figure4_GrayWaterFootprint.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure4_GrayWaterFootprint.pdf",
+    bbox_inches="tight"
+)
+
+plt.savefig(
+    "Figure4_GrayWaterFootprint.svg",
+    bbox_inches="tight"
+)
+
+plt.show()
 
