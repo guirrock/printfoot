@@ -1,33 +1,29 @@
-# Water-Protein Efficiency Mapping
+# DPWEI: Digestible Protein Water Efficiency Index
 
-A reproducible data integration and analysis pipeline for evaluating the **nutritional efficiency of water use among protein sources**. The workflow combines nutritional composition data from the Brazilian Food Composition Table (TACO), water footprint indicators from the Water Footprint Network (WFN), and protein quality scores based on the Digestible Indispensable Amino Acid Score (DIAAS).
+An open-source implementation of the **Digestible Protein Water Efficiency Index (DPWEI)**, a comparative indicator that integrates protein digestibility and water footprint to evaluate the nutritional efficiency of water use among protein sources.
 
-The project automatically cleans raw datasets, translates food names, performs semantic matching between heterogeneous food databases, calculates water-use efficiency indicators, computes the **Digestible Protein Water Efficiency Index (DPWEI)**, and generates publication-ready visualizations.
+The project provides a fully reproducible computational workflow for integrating nutritional composition data from the Brazilian Food Composition Table (TACO), water footprint indicators from the Water Footprint Network (WFN), and protein quality scores based on the Digestible Indispensable Amino Acid Score (DIAAS). The pipeline automatically prepares heterogeneous datasets, performs food matching, calculates the proposed DPWEI, and generates publication-ready tables and figures.
 
 ---
 
 # Overview
 
-This project aims to answer the following question:
+This project was developed to answer the following question:
 
 > **Which protein sources provide the greatest amount of digestible protein relative to the water required for their production?**
 
-To achieve this, the workflow integrates:
+To answer this question, the workflow integrates three complementary sources of information:
 
-- **TACO** (Brazilian Food Composition Table) – protein composition
-- **Water Footprint Network (WFN)** reports – green, blue, and grey water footprints
-- **DIAAS** (Digestible Indispensable Amino Acid Score) – protein digestibility and quality
+- **TACO** (Brazilian Food Composition Table) — nutritional composition
+- **Water Footprint Network (WFN)** — green, blue, and grey water footprints
+- **DIAAS** (Digestible Indispensable Amino Acid Score) — protein digestibility and quality
 
-The final output is a ranked dataset containing:
+The resulting dataset enables the calculation of two complementary indicators:
 
-- Crude protein content
-- Digestible protein content
-- Green water footprint
-- Blue water footprint
-- Grey water footprint
-- Total water footprint
-- Gross Water-Use Efficiency (GWUE)
-- Digestible Protein Water Efficiency Index (DPWEI)
+- **Gross Water-Use Efficiency (GWUE)**
+- **Digestible Protein Water Efficiency Index (DPWEI)**
+
+The pipeline also generates publication-ready tables and visualizations used in the accompanying scientific publication.
 
 ---
 
@@ -78,7 +74,7 @@ taco_traduzida.xlsx
 
 ## 3. Food Matching
 
-Food names differ substantially across nutritional and environmental databases.
+Food names differ considerably between nutritional and environmental databases.
 
 To integrate both datasets, the workflow employs a hybrid matching strategy.
 
@@ -106,7 +102,7 @@ The workflow:
 all-MiniLM-L6-v2
 ```
 
-- Computes cosine similarity against every WFN product
+- Computes cosine similarity
 - Selects the highest similarity candidate
 
 **Output**
@@ -115,7 +111,7 @@ all-MiniLM-L6-v2
 1_revisao_hibrida.xlsx
 ```
 
-This file allows manual review of uncertain matches before data integration.
+The resulting spreadsheet allows manual validation before the final integration.
 
 ---
 
@@ -131,7 +127,7 @@ Water Footprint Database
 DIAAS Database
 ```
 
-For each food, the integrated dataset contains:
+The integrated dataset contains:
 
 - Crude protein
 - Digestible protein
@@ -144,22 +140,19 @@ For each food, the integrated dataset contains:
 
 ## 5. Water-Use Efficiency Indicators
 
-Two complementary indicators are calculated.
-
 ### Gross Water-Use Efficiency (GWUE)
+
+Measures the amount of crude protein available per unit of water footprint.
 
 \[
 GWUE=\frac{Protein}{WaterFootprint}
 \]
 
-where:
-
-- Protein = crude protein (g/100 g)
-- WaterFootprint = total water footprint (m³/t)
-
 ---
 
 ### Digestible Protein
+
+Digestible protein is estimated as
 
 \[
 DigestibleProtein = Protein \times \frac{DIAAS}{100}
@@ -169,13 +162,15 @@ DigestibleProtein = Protein \times \frac{DIAAS}{100}
 
 ### Digestible Protein Water Efficiency Index (DPWEI)
 
+The proposed DPWEI integrates digestible protein and total water footprint into a single comparative indicator.
+
 \[
 DPWEI=\frac{DigestibleProtein}{WaterFootprint}
 \]
 
-For presentation purposes, DPWEI values are multiplied by a constant scaling factor (1000), producing the **DPWEI Score** used in the associated publication.
+For presentation purposes, DPWEI values are multiplied by a constant factor of 1000, producing the **DPWEI Score** reported in the publication.
 
-Higher DPWEI Scores indicate more favorable combinations of protein digestibility and water footprint.
+Higher DPWEI Scores indicate more favorable combinations of digestible protein availability and water footprint.
 
 **Output**
 
@@ -187,61 +182,12 @@ Higher DPWEI Scores indicate more favorable combinations of protein digestibilit
 
 # Generated Visualizations
 
-## 1. Top Foods Ranked by DPWEI Score
+The pipeline automatically produces publication-ready figures, including:
 
-Horizontal ranking of the highest-performing protein sources according to the proposed indicator.
-
-**Output**
-
-```text
-grafico1_top_dpwei.png
-```
-
----
-
-## 2. Digestible Protein × Water Footprint
-
-Scatter plot showing:
-
-- Digestible protein
-- Total water footprint
-- DPWEI Score (color scale)
-
-**Output**
-
-```text
-grafico2_dispersao.png
-```
-
----
-
-## 3. Water Footprint Composition
-
-Horizontal stacked bars showing:
-
-- Green water
-- Blue water
-- Grey water
-
-for the highest-ranked foods according to DPWEI.
-
-**Output**
-
-```text
-grafico3_pegada_empilhada.png
-```
-
----
-
-## 4. Gray Water Footprint Ranking
-
-Ranking of all evaluated foods according to their grey water footprint.
-
-**Output**
-
-```text
-grafico4_agua_cinza.png
-```
+- Ranking of foods according to DPWEI Score
+- Digestible protein versus total water footprint
+- Water footprint composition (green, blue, and grey)
+- Grey water footprint ranking
 
 ---
 
@@ -260,10 +206,7 @@ grafico4_agua_cinza.png
 ├── 1_revisao_hibrida.xlsx
 ├── 2_eficiencia_proteica_real_hibrida.xlsx
 │
-├── grafico1_top_dpwei.png
-├── grafico2_dispersao.png
-├── grafico3_pegada_empilhada.png
-├── grafico4_agua_cinza.png
+├── figures/
 │
 └── mapeamento_eficiencia_hidrica.ipynb
 ```
@@ -271,8 +214,6 @@ grafico4_agua_cinza.png
 ---
 
 # Requirements
-
-Install the required dependencies:
 
 ```bash
 pip install pandas numpy openpyxl
@@ -286,98 +227,50 @@ pip install matplotlib seaborn
 
 # Running the Pipeline
 
-## Step 1 – Clean Water Footprint Data
+1. Clean WFN datasets
 
 ```python
 limpar_planilha_wfn(...)
 limpar_planilha_vegetais(...)
 ```
 
-Generates
-
-```text
-waterstat_animais_limpo.xlsx
-waterstat_vegetais_global_limpo.xlsx
-```
-
----
-
-## Step 2 – Prepare TACO
+2. Prepare the TACO database
 
 ```python
 preparar_taco(...)
 ```
 
-Generates
+3. Execute semantic matching
 
-```text
-taco_traduzida.xlsx
-```
+4. Review the generated matching file (optional)
 
----
+5. Calculate GWUE and DPWEI
 
-## Step 3 – Run Food Matching
-
-Generates
-
-```text
-1_revisao_hibrida.xlsx
-```
-
-Review the generated file if necessary.
-
----
-
-## Step 4 – Calculate Efficiency Indicators
-
-Generates
-
-```text
-2_eficiencia_proteica_real_hibrida.xlsx
-```
-
-including:
-
-- GWUE
-- DPWEI
-- DPWEI Score
-
----
-
-## Step 5 – Generate Figures
-
-Produces
-
-```text
-grafico1_top_dpwei.png
-grafico2_dispersao.png
-grafico3_pegada_empilhada.png
-grafico4_agua_cinza.png
-```
+6. Generate publication-ready figures
 
 ---
 
 # Scientific Contribution
 
-This workflow provides a reproducible framework for integrating environmental and nutritional datasets within the **Water–Food–Nutrition Nexus**.
+This repository implements the **Digestible Protein Water Efficiency Index (DPWEI)**, a novel comparative indicator proposed to integrate nutritional quality and environmental impact into a unified assessment of protein production.
 
-Its primary contribution is the implementation of the **Digestible Protein Water Efficiency Index (DPWEI)**, a comparative indicator that integrates:
+Unlike conventional water footprint analyses based solely on crude protein content, the DPWEI incorporates protein digestibility through the Digestible Indispensable Amino Acid Score (DIAAS), enabling more meaningful comparisons among plant- and animal-based protein sources.
 
-- Environmental impact (water footprint)
-- Nutritional quantity (protein content)
-- Nutritional quality (digestibility through DIAAS)
+Beyond the case study presented in the associated publication, the workflow provides a reproducible methodology that can be adapted to combine national food composition databases with regional or global water footprint inventories, supporting future research within the **Water–Food–Nutrition Nexus**.
 
-Unlike conventional water footprint assessments based solely on crude protein, the DPWEI incorporates digestible protein, allowing more meaningful comparisons among plant- and animal-based protein sources.
+---
 
-The workflow can be adapted to integrate other national food composition databases with regional or global water footprint datasets, facilitating future sustainability assessments and supporting evidence-based decision making in agriculture, nutrition, and food policy.
+# Associated Publication
+
+**Integrating Water Footprint and Protein Digestibility: The Digestible Protein Water Efficiency Index (DPWEI) for Assessing Sustainable Protein Production**
 
 ---
 
 # Citation
 
 ```bibtex
-@software{water_protein_efficiency,
-  title={Water-Protein Efficiency Mapping},
+@software{dpwei,
+  title={DPWEI: Digestible Protein Water Efficiency Index},
   author={Your Name},
   year={2026},
   url={https://github.com/anonymous}
