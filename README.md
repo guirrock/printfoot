@@ -1,42 +1,46 @@
 # Water-Protein Efficiency Mapping
 
-A data integration and analysis pipeline for evaluating the **water efficiency of protein sources**, combining nutritional composition data from the Brazilian Food Composition Table (TACO), water footprint indicators from the Water Footprint Network (WFN), and protein quality scores (DIAAS).
+A reproducible data integration and analysis pipeline for evaluating the **nutritional efficiency of water use among protein sources**. The workflow combines nutritional composition data from the Brazilian Food Composition Table (TACO), water footprint indicators from the Water Footprint Network (WFN), and protein quality scores based on the Digestible Indispensable Amino Acid Score (DIAAS).
 
-The project automatically cleans raw datasets, translates food names, performs semantic matching between heterogeneous food databases using NLP models, calculates water-use efficiency indicators, and generates publication-ready visualizations.
+The project automatically cleans raw datasets, translates food names, performs semantic matching between heterogeneous food databases, calculates water-use efficiency indicators, computes the **Digestible Protein Water Efficiency Index (DPWEI)**, and generates publication-ready visualizations.
 
 ---
 
-## Overview
+# Overview
 
 This project aims to answer the following question:
 
-> Which foods deliver the highest amount of digestible protein per unit of water consumed during production?
+> **Which protein sources provide the greatest amount of digestible protein relative to the water required for their production?**
 
 To achieve this, the workflow integrates:
 
-- **TACO** (Brazilian Food Composition Table) – protein content
+- **TACO** (Brazilian Food Composition Table) – protein composition
 - **Water Footprint Network (WFN)** reports – green, blue, and grey water footprints
-- **DIAAS** (Digestible Indispensable Amino Acid Score) – protein quality and digestibility
+- **DIAAS** (Digestible Indispensable Amino Acid Score) – protein digestibility and quality
 
-The final output is a ranking of foods according to:
+The final output is a ranked dataset containing:
 
-- Protein content
+- Crude protein content
 - Digestible protein content
-- Water footprint
-- Water efficiency of protein production
+- Green water footprint
+- Blue water footprint
+- Grey water footprint
+- Total water footprint
+- Gross Water-Use Efficiency (GWUE)
+- Digestible Protein Water Efficiency Index (DPWEI)
 
 ---
 
-## Methodology
+# Methodology
 
-### 1. Water Footprint Data Extraction
+## 1. Water Footprint Data Extraction
 
 Raw Excel appendices from the Water Footprint Network are cleaned and standardized.
 
-**Sources:**
+**Sources**
 
-- Report 47 – Crop products
-- Report 48 – Animal products
+- Report 47 – Crop Products
+- Report 48 – Animal Products
 
 The scripts:
 
@@ -46,66 +50,76 @@ The scripts:
 - Pivot water types into columns
 - Compute total water footprint
 
-**Outputs:**
+**Outputs**
 
 ```text
 waterstat_animais_limpo.xlsx
 waterstat_vegetais_global_limpo.xlsx
 ```
 
-### 2. TACO Processing
+---
+
+## 2. TACO Processing
 
 The TACO dataset is processed to:
 
 - Identify food names and protein columns automatically
 - Filter foods containing at least 6 g protein per 100 g
 - Translate food names from Portuguese to English
-- Prepare data for semantic matching
+- Prepare the dataset for semantic matching
 
-**Output:**
+**Output**
 
 ```text
 taco_traduzida.xlsx
 ```
 
-### 3. Food Matching
+---
 
-Since food names differ across databases, a hybrid matching strategy is employed.
+## 3. Food Matching
 
-#### Rule-Based Matching
+Food names differ substantially across nutritional and environmental databases.
 
-A set of manually defined mappings anchors important food categories.
+To integrate both datasets, the workflow employs a hybrid matching strategy.
+
+### Rule-Based Matching
+
+A manually curated mapping anchors important food categories.
 
 | TACO Food | WFN Category |
-|------------|------------|
+|------------|--------------|
 | Beef | Bovine cuts |
 | Chicken | Gallus domesticus meat |
 | Rice | Rice |
 | Beans | Dry beans |
 | Soybean | Soybeans |
 
-#### Semantic Matching
+### Semantic Matching
 
-For foods not covered by rules:
+Foods not covered by manual rules are matched automatically.
 
-- Sentence embeddings are generated using the model:
+The workflow:
+
+- Generates sentence embeddings using
 
 ```python
 all-MiniLM-L6-v2
 ```
 
-- Cosine similarity is calculated against all WFN products
-- The highest similarity candidate is selected
+- Computes cosine similarity against every WFN product
+- Selects the highest similarity candidate
 
-**Output:**
+**Output**
 
 ```text
 1_revisao_hibrida.xlsx
 ```
 
-This file allows manual review of uncertain matches.
+This file allows manual review of uncertain matches before data integration.
 
-### 4. Data Integration
+---
+
+## 4. Data Integration
 
 The pipeline merges:
 
@@ -117,36 +131,53 @@ Water Footprint Database
 DIAAS Database
 ```
 
-For each food, the following information becomes available:
+For each food, the integrated dataset contains:
 
-- Protein content
-- Digestible protein content
+- Crude protein
+- Digestible protein
 - Green water footprint
 - Blue water footprint
 - Grey water footprint
 - Total water footprint
 
-### 5. Efficiency Calculations
+---
 
-#### Raw Protein Efficiency
+## 5. Water-Use Efficiency Indicators
 
-\[
-E_{raw}=\frac{Protein}{WaterFootprint}
-\]
+Two complementary indicators are calculated.
 
-#### Digestible Protein
+### Gross Water-Use Efficiency (GWUE)
 
 \[
-Protein_{digestible}=Protein \times \frac{DIAAS}{100}
+GWUE=\frac{Protein}{WaterFootprint}
 \]
 
-#### Real Water Efficiency
+where:
+
+- Protein = crude protein (g/100 g)
+- WaterFootprint = total water footprint (m³/t)
+
+---
+
+### Digestible Protein
 
 \[
-E_{real}=\frac{Protein_{digestible}}{WaterFootprint}
+DigestibleProtein = Protein \times \frac{DIAAS}{100}
 \]
 
-**Output:**
+---
+
+### Digestible Protein Water Efficiency Index (DPWEI)
+
+\[
+DPWEI=\frac{DigestibleProtein}{WaterFootprint}
+\]
+
+For presentation purposes, DPWEI values are multiplied by a constant scaling factor (1000), producing the **DPWEI Score** used in the associated publication.
+
+Higher DPWEI Scores indicate more favorable combinations of protein digestibility and water footprint.
+
+**Output**
 
 ```text
 2_eficiencia_proteica_real_hibrida.xlsx
@@ -154,94 +185,67 @@ E_{real}=\frac{Protein_{digestible}}{WaterFootprint}
 
 ---
 
-## Generated Visualizations
+# Generated Visualizations
 
-### 1. Water Footprint Composition
+## 1. Top Foods Ranked by DPWEI Score
 
-Stacked bars showing:
+Horizontal ranking of the highest-performing protein sources according to the proposed indicator.
 
-- Green water (rainfall)
-- Blue water (surface and groundwater)
-- Grey water (pollution-related)
-
-**Output:**
+**Output**
 
 ```text
-grafico1_pegada_empilhada.png
+grafico1_top_dpwei.png
 ```
 
-### 2. Water vs Protein Scatter Plot
+---
 
-Relationship between:
+## 2. Digestible Protein × Water Footprint
 
-- Total water footprint
+Scatter plot showing:
+
 - Digestible protein
+- Total water footprint
+- DPWEI Score (color scale)
 
-**Output:**
+**Output**
 
 ```text
 grafico2_dispersao.png
 ```
 
-### 3. Raw vs Real Efficiency
+---
 
-Comparison between:
+## 3. Water Footprint Composition
 
-- Protein efficiency without digestibility correction
-- Protein efficiency adjusted by DIAAS
+Horizontal stacked bars showing:
 
-**Output:**
+- Green water
+- Blue water
+- Grey water
 
-```text
-grafico3_eficiencia_comparada.png
-```
+for the highest-ranked foods according to DPWEI.
 
-### 4. Highest Protein Foods
-
-Comparison between:
-
-- Total protein
-- Digestible protein
-
-**Output:**
+**Output**
 
 ```text
-grafico4_top_proteinas.png
-```
-
-### 5. Category-Level Analysis
-
-Trade-off between:
-
-- Average water footprint
-- Average digestible protein
-
-**Output:**
-
-```text
-grafico5_categorias_eixos_duplos.png
-```
-
-### 6. Sustainability Bubble Chart
-
-Multidimensional visualization:
-
-| Dimension | Variable |
-|------------|------------|
-| X-axis | Water footprint |
-| Y-axis | Digestible protein |
-| Bubble size | Water efficiency |
-| Color | Food category |
-
-**Output:**
-
-```text
-grafico6_bolhas_multidimensionais.png
+grafico3_pegada_empilhada.png
 ```
 
 ---
 
-## Project Structure
+## 4. Gray Water Footprint Ranking
+
+Ranking of all evaluated foods according to their grey water footprint.
+
+**Output**
+
+```text
+grafico4_agua_cinza.png
+```
+
+---
+
+# Project Structure
 
 ```text
 .
@@ -256,21 +260,19 @@ grafico6_bolhas_multidimensionais.png
 ├── 1_revisao_hibrida.xlsx
 ├── 2_eficiencia_proteica_real_hibrida.xlsx
 │
-├── grafico1_pegada_empilhada.png
+├── grafico1_top_dpwei.png
 ├── grafico2_dispersao.png
-├── grafico3_eficiencia_comparada.png
-├── grafico4_top_proteinas.png
-├── grafico5_categorias_eixos_duplos.png
-├── grafico6_bolhas_multidimensionais.png
+├── grafico3_pegada_empilhada.png
+├── grafico4_agua_cinza.png
 │
 └── mapeamento_eficiencia_hidrica.ipynb
 ```
 
 ---
 
-## Requirements
+# Requirements
 
-Install dependencies:
+Install the required dependencies:
 
 ```bash
 pip install pandas numpy openpyxl
@@ -282,80 +284,96 @@ pip install matplotlib seaborn
 
 ---
 
-## Running the Pipeline
+# Running the Pipeline
 
-### Step 1 – Clean Water Footprint Data
+## Step 1 – Clean Water Footprint Data
 
 ```python
 limpar_planilha_wfn(...)
 limpar_planilha_vegetais(...)
 ```
 
-Generates:
+Generates
 
 ```text
 waterstat_animais_limpo.xlsx
 waterstat_vegetais_global_limpo.xlsx
 ```
 
-### Step 2 – Prepare TACO
+---
+
+## Step 2 – Prepare TACO
 
 ```python
 preparar_taco(...)
 ```
 
-Generates:
+Generates
 
 ```text
 taco_traduzida.xlsx
 ```
 
-### Step 3 – Run Semantic Matching
+---
 
-Generates:
+## Step 3 – Run Food Matching
+
+Generates
 
 ```text
 1_revisao_hibrida.xlsx
 ```
 
-Review this file if desired.
+Review the generated file if necessary.
 
-### Step 4 – Calculate Water Efficiency
+---
 
-Generates:
+## Step 4 – Calculate Efficiency Indicators
+
+Generates
 
 ```text
 2_eficiencia_proteica_real_hibrida.xlsx
 ```
 
-### Step 5 – Generate Figures
+including:
 
-Produces:
+- GWUE
+- DPWEI
+- DPWEI Score
+
+---
+
+## Step 5 – Generate Figures
+
+Produces
 
 ```text
-grafico1_pegada_empilhada.png
+grafico1_top_dpwei.png
 grafico2_dispersao.png
-grafico3_eficiencia_comparada.png
-grafico4_top_proteinas.png
-grafico5_categorias_eixos_duplos.png
-grafico6_bolhas_multidimensionais.png
+grafico3_pegada_empilhada.png
+grafico4_agua_cinza.png
 ```
 
 ---
 
-## Scientific Contribution
+# Scientific Contribution
 
-This workflow provides a reproducible framework for evaluating food sustainability by integrating:
+This workflow provides a reproducible framework for integrating environmental and nutritional datasets within the **Water–Food–Nutrition Nexus**.
 
-- Environmental indicators (water footprint)
+Its primary contribution is the implementation of the **Digestible Protein Water Efficiency Index (DPWEI)**, a comparative indicator that integrates:
+
+- Environmental impact (water footprint)
 - Nutritional quantity (protein content)
-- Nutritional quality (DIAAS)
+- Nutritional quality (digestibility through DIAAS)
 
-The resulting metric allows comparisons that go beyond traditional environmental assessments by incorporating the biological value of the protein delivered by each food source.
+Unlike conventional water footprint assessments based solely on crude protein, the DPWEI incorporates digestible protein, allowing more meaningful comparisons among plant- and animal-based protein sources.
+
+The workflow can be adapted to integrate other national food composition databases with regional or global water footprint datasets, facilitating future sustainability assessments and supporting evidence-based decision making in agriculture, nutrition, and food policy.
 
 ---
 
-## Citation
+# Citation
 
 ```bibtex
 @software{water_protein_efficiency,
