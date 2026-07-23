@@ -164,7 +164,8 @@ Final 2_eficiencia_proteica_real_hibrida_inglês.xlsx
 
 # Repository Structure
 
-```text
+```text# Repository Structure
+
 .
 ├── taco.xlsx
 ├── Tabela DIAAS.xlsx
@@ -177,6 +178,12 @@ Final 2_eficiencia_proteica_real_hibrida_inglês.xlsx
 ├── 1_revisao_hibrida.xlsx
 ├── 2_eficiencia_proteica_real_hibrida.xlsx
 ├── Final 2_eficiencia_proteica_real_hibrida_inglês.xlsx
+│
+├── figures/
+│   ├── fig1.png
+│   ├── fig2.png
+│   ├── fig3.png
+│   └── fig4.png
 │
 └── mapeamento_eficiencia_hidrica.ipynb
 ```
